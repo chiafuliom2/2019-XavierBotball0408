@@ -1,391 +1,489 @@
 #include <kipr/botball.h>
-/*
 
-1. Move to burning medical centers on an msleep while loop
-2. follow medical center black line with left infrared sensor in a while loop until right sensor detects.
-3. Move on black line until white line is detected with right sensor
-4. Turn right and follow black line with right infrared sensor while loop with claw sensor.
-5. Have claw extended for the whole duration of follow line
-6. once black line is detected, turn off all motors and close claw.
-7. lift up claw and turn right.
-8. Follow wall while loop and push WTC deep into the utility zone. Break while loop when infrared sensor detects black line of utility zone. 
-9. Deposit poms in WTC and tamp it down
-10. Possibly do something with the power lines.
-*/
+//Variables//
 
-// Variable Declarations
+int target_f = 2100;
+int target_g = 3500; 
+int fire_target = 3000;
+int black = 1500;
+int g_sens2 = 5;
+int g_sens = 0;
+int eyes = 3;
+int servo = 0; 
+int tophat = 1;
+int LM = 1;
+int RM = 3;
+int speed1 = 47;
+int speed2 = 70;
+int speed3 = 85;
+int yellow = 0;
+int red = 1; 
+int claw = 0;
+int arm = 3;
+int midpoint = 500;
+int midmidpoint = 1500;
+int highpoint = 100;
+int lowpoint = 1950;
+int claw_closed = 30;
+int claw_opened = 800;
+int claw_mid = 350;
+int servo_pause = 1000;
+int fire;
+int count = 0;
+int turn_count;
 
-int r_motor = 0;
-int l_motor = 2;
-int speed_avg = 50;
-int b_right = 1;
-int b_claw = 2;
-int d_left = 3;
-int b_r_sweet = 650;
-int d_wash_sweet = 2500;
-int d_start_sweet = 1450;
-int button = 0;
-int f_speed = 40;
-int l_speed = 20;
-int claw = 2;
-int open_c = 200;
-int close_c = 1640;
-int left_arm = 1;
-int right_arm = 0;
-int left_arm_down = 1625; // 1120
-int right_arm_down = 375; //970
-int right_max = 1500;
-int left_max = 600;
-int wall = 3;
-int open_w = 650;
-int close_w = 1900;
-int arm_tamp = 1000;
-int d_med_sweet = 1000;
+int main()
+{
+  	/*wait_for_light(2);
+  	shut_down_in(120.0);*/
 
-
-// Function Declarations
-
-int main(){
-   // lower_plow();
-    initialize();
-    move_to_mid_line();
-    cross();
-    lift_and_align();
-    
-    
-    
-   // approach_bucket();
-    
-    /*
-    lift_plow();
-    disable_servos();
-    dump();
+	init_servos();
+    	printf("servos_in_position\n");
+        forward();//drive forward briefly to get lined up with the ambulance
+    msleep(750);
     ao();
-    msleep(2000);
-    lower_plow();
-    */
-    
-    return 0;
-}
-int lift_and_align(){
-    open_claw();
-    msleep(2000);
-    printf("closing slowly");
-    back_up_close();
-    reverse(500);
+    close_claw();
+    raise_arm_mid();
+	find_black();
+    	printf("black_detected\n");
     ao();
-    close_claw_s();
+    find_white();
+    	printf("white_detected\n");
     ao();
-    reverse(1000);
-    turnRight(1600);
+    drift_r();//slight adjust turn to face hospitals
+    msleep(3400);
+    find_black();//find black line in front of med centers
+    	printf("black detected at building\n");
     ao();
-    
+    find_white();
+    ao();
+    drift_r();//slight adjust turn to face hospitals
+    msleep(750);
+    ao();
+drift_r_line();
+    ao();
+    backward();
+    msleep(300);
+    ao();
+fire_check_loop();
+decision();
 }
 
+//Function definitions//
+//SERVO FUNCTIONS //
+int raise_arm_mid()
+{
+    set_servo_position(arm,midpoint);
+    msleep(servo_pause);
+}
+int raise_arm_midmid()
+{
+    set_servo_position(arm,midmidpoint);
+    msleep(servo_pause);
+}
 
-int back_up_close(){
-    int pos = open_c;
-    reverse(800);
-    ao();
-    enable_servos();
-    while(pos < close_c){
-    set_servo_position(claw, pos);
-    msleep(50);
-    pos += 10;
+int raise_arm_full()
+{
+    set_servo_position(arm,highpoint);
+    msleep(servo_pause);
+}
+int lower_arm()
+{
+    set_servo_position(arm,lowpoint);
+    msleep(servo_pause);
+}
+int open_claw()
+{
+    set_servo_position(claw,claw_opened);
+    msleep(servo_pause);
+}
+int close_claw()
+{
+    set_servo_position(claw,claw_closed);
+    msleep(servo_pause);
+}
+int forward()  
+{
+  	motor(LM,speed1);
+	motor(RM,speed1);
+}
+int backward()
+{
+	motor (LM,-speed2);
+	motor (RM,-speed2);
+	//msleep(1400);
+}
+int l_turn()
+{
+  	motor(LM,-speed1);
+    motor(RM,speed1);
+}
+int r_turn()
+{
+	while(analog(g_sens)<target_g)
+	motor(LM, speed1);
+ 	motor(RM, -speed1);
+}
+
+int find_black()
+{
+  	while(analog(g_sens2)<target_g)
+    {
+        printf("gsens2=%d\n",analog(g_sens2));
+      forward();
+    //  msleep(1000);
     }
-    disable_servos();
-    
-    
-    
+}
+int stop_black()
+{
+  	while(analog(g_sens)>=target_g)
+    {
+      ao();
+    }
+}
+int find_white()  
+{
+  	while(analog(g_sens2)>target_g)
+    {
+        printf("gsens2=%d\n",analog(g_sens2));
+      forward();
+    //  msleep(1000);
+    }
+}
+int turn_white()
+{  
+	while(analog(g_sens2)<target_g)
+    {	
+    r_turn();
+	}
+}
+int turn_black()
+{
+  while(analog(g_sens)<target_g)
+  {
+    r_turn();
+  }
+}   
+int drift_r()  
+{
+    motor(LM,speed2);
+    motor(RM,speed1);           
+}
+int drift_l()
+{
+	motor (LM,-10);
+	motor (RM,speed2);
 }
 
-
-
-/*Once we finish following the main black line, we should be in front of the power lines. 
-	This function turns right and then follows the wall until we hit the black line that marksthe utility zone. 
-    In this process, we will be pushing the water treatment zone into the utility zone during the line follow 
-    since it will be in the path of motion.
-*/
-int approach_bucket (){
-    
-    
-    while(analog(b_right) < b_r_sweet){
-        if(analog(d_left) > d_wash_sweet){
-            drift_right();
+int big_drift_1()
+{
+    while(analog(g_sens2)<target_g)
+    {
+        drift_r();
+    }
+}
+int pivot_r()  
+{
+    motor(LM,speed1);      
+    msleep(2500);
+}
+int pivot_l()
+{
+	motor (RM,speed2);
+    msleep(3000);
+}
+int line_follow_1()   
+{
+        while(analog(g_sens)<target_g)
+		{           				  //while the bot is not sensing the line//
+        if(analog(g_sens2)>target_g)
+		{                                      //the bot will drift off the line when it senses it//
+        	drift_l();
         }
-        
-        if(analog(d_left) < d_wash_sweet){
-            drift_left();
+        if(analog(g_sens2)<target_g)
+		{                                  //the bot will drift onto the line when it doesn't sense it//
+            drift_r_line();
         }
     }
-    forward(2000);
+    ao();
 }
-
-
-
-// this dump function opens the back wall of the plow and shakes to let the poms out. 
-// It then tamps the poms down with the bottom of the plow
-int dump (){
-    
-    open_wall();
-   // shake();
-    msleep(5000);
-    close_wall();
-    reverse(1000); 
-    disable_servos();
-}
-
-//  Moves the plow up and down in little increments to shake the poms out of the plow and into the treatment zone.
-//
-int shake(){
-    
-    enable_servos();
-    
-    int i = 0;
-    while(i < 10){
-        
-     //   set_servo_position(arm, arm_up+50);
-    	msleep(100);
-      //  set_servo_position(arm, arm_up-50);
-        msleep(100);
-       i++;
+int line_follow_2()   
+{
+        while(analog(eyes)<target_f)
+		{           				  //while the bot is not sensing the line//
+        if(analog(g_sens)>target_g)
+		{                                      //the bot will drift off the line when it senses it//
+        	drift_r();
+        }
+        if(analog(g_sens)<target_g)
+		{                                  //the bot will drift onto the line when it doesn't sense it//
+            drift_l();
+        }
     }
-    disable_servos();
 }
 
-
-// Calls servo functions to set servos for our initial conditions
-int initialize(){
-    
-    	close_wall();
-    	set_servo_position(left_arm, left_arm_down);
-    	set_servo_position(right_arm, right_arm_down);
-    	msleep(500);
-    	medium_claw();
-    	
-   
+void decision(){
+    printf("fire = %d\n",fire);
+	if(fire == 1){
+         printf("running fire_building 1\n");
+		fire_building1();
+        
+       
+	}
+	if(fire == 0){
+         printf("running fire_building 2\n");
+		fire_building2();
+        
+	}
 }
 
-//servo function that closes the back wall of the plow
-int close_wall (){
-    enable_servos();
-    set_servo_position(wall, close_w);
-    msleep(1000);
-    disable_servos();  
-}
-
-// servo function that opens the back wall of the plow
-int open_wall (){
-    enable_servos();
-    set_servo_position(wall, open_w);
-    msleep(1000);
-    disable_servos();   
-}
-
-int medium_claw(){
-    enable_servos();
-    set_servo_position(claw, 1100);
+        
+void fire_building1(){
+    forward();
     msleep(500);
-    disable_servos();
+    ao();
+	find_white();
+        l_turn();
+    	msleep(300);
+    	ao();
+    lower_arm();
+	open_claw();
+		
 }
-
-// servo function that lowers the plow
-int lower_plow(){
+void fire_building2(){
     
-    printf("finding line");
-	int h = left_max;
-	int l = right_max;
-    enable_servos();
-    while(h < left_arm_down && l > right_arm_down){
-        printf("raising");
-  		set_servo_position(right_arm,l);
-		set_servo_position(left_arm,h);
-    	l -= 1; 
-    	h += 1;
-        msleep(5);
-     }
-}
-
-// servo function that raises the plow
-int lift_plow(){
-    
-	int h = left_arm_down;
-	int l = right_arm_down;
-    enable_servos();
-    while(h > left_max && l < right_max){
-        printf("raising \n" );
-     	
-  		set_servo_position(right_arm,l);
-		set_servo_position(left_arm,h);
-    	l += 1; 
-    	h -= 1;
-        msleep(5);
-     }
-}
-
-// We begin this function in the starting box. The Robot should be positioned diagonally to the medical center tape.
-// the bot will move forward, past the starting tape lines.
-// Next, it will move forward on a while loop until it detects the black line that marks the outskirts of the medical centers
-// Next, it will be following the line that marks the medical center until it detects the main dissecting line of the course.
-// We will break out if this while loop by detecting the medical center.
-// Then, we will manuever to position ourselves right next to the middle line, where we will then follow it in the next function. 
-int move_to_mid_line (){
-    
-    while(analog(b_right) < b_r_sweet){
-        forward();
-    }
-    printf("Touched Tape");
-    forward(1000);
+    	printf("turning");
+		backward();
+    msleep(1500);
     ao();
-    close_claw_s();
+    	l_turn();
+    msleep(700);
     ao();
-    while(digital(button) == 0){
-        if (analog(d_left) < d_start_sweet){
-            drift_left();
-        }
-        if (analog(d_left) > d_start_sweet){
-            drift_right();
-        }
-    }
-    printf("Followed Wall");
-    
-    reverse(1500);
-    ao();
-    turnRight(1650);
-    ao();
-    printf("Approaching Midline");
-    while(analog(b_right) < b_r_sweet){
-        forward();
-    }
-    printf("Touched Midline");
-    reverse(500);
-    ao();
-    open_claw();
-    ao();
-    
-    forward(1500);
-    ao();
-    close_claw_s();
-    forward(500);
-    ao();
-    printf("Pivoting");
-    
-    while(analog(b_right) < b_r_sweet){
-        pivot_right_s();
-    }
-    ao();
-    open_claw();
-    forward(600);
-    ao();
-    close_claw_s();
-   
-    while(analog(b_right) < b_r_sweet){
-        pivot_right_s();
-    }
-    open_claw();
-    forward(500);
-     while(analog(b_right) < b_r_sweet){
-        pivot_right_s();
-    }
-    printf("On the midline, prepared to cross");
-    
-}
-
-
-// Servo function to open the claw
-int open_claw(){
- 
-    enable_servos();
-    set_servo_position(claw, open_c);
+		lower_arm();
+    	open_claw();// drops ambulance
+    	raise_arm_mid();//get clear of ambulance
     msleep(1000);
-    disable_servos();
+    back_black();//back up to the black line
+    ao();
+    back_white();//baCK UP TO THE WHITE TABLE
+    ao();
+    lower_arm();	
+    back_left(); //get clear of the dropped ambulance
+    msleep(5000);
+    find_black();
+    close_claw();
+    /*find_pillar();//turn till g_sens2 sees the black then follows the black till the ET sees the Fire pole
+    ao();
+    forward();//move forward to get the fireman
+    msleep(1100);
+    ao();
+    close_claw();
+    raise_arm_midmid();
+    shimmy();*/
+    backward();//reverse with fireman
+    msleep(2000);
+    raise_arm_full();//raise up the fireman
+    back_right();//turns to face the middle line
+    msleep(5000);
+    ao();
+    drift_r();
+    msleep(2000);
+    ao();
+	turn_check();
+    line_follow_3();//turn to the left and follow the line with the left sensor until the right  he med centers
+    ao();
+    pivot_r2();
+    ao();
+    lower_arm();
+    open_claw();
 }
-    
-// this function is a while loop that will follow the black middle line to the other side of the board.
-// we will collect poms in the process
-// To break out of the loop, we will use a black line sensor attached to the claw to detect the black line near the gas valve
 
-int cross (){
-    while(digital(button) == 0){
-        if(analog(b_right) < b_r_sweet){
-            drift_right();
+int init_servos()
+{
+	enable_servos();
+    set_servo_position(claw,claw_mid);
+    set_servo_position(arm,lowpoint);
+    msleep(servo_pause);
+}
+int drift_r_line()
+{
+	while(analog(g_sens2)<target_g){
+        drift_r();
+            printf("g_sens=%d\n");
         }
-        
-        if(analog(b_right) > b_r_sweet){
-            drift_left();
-        }    
+    }
+
+    int fire_check_loop(){
+        camera_open_black();
+        int fire_yes = 0;
+        int fire_no = 0;
+        int count_loop = 0;
+        fire = 0;
+        while(count_loop==0){
+            camera_update();
+            msleep(200);
+            
+            if(get_object_count(red) > 0 ){
+                printf("fire_yes = %d\n", fire_yes);
+                fire_yes ++;
+            }
+          if(get_object_count(red) == 0 ){
+               printf("fire_no = %d\n", fire_no);
+                fire_no ++;
+            }
+            if(fire_no == 10){
+                 printf("not seeing fire\n");
+                count_loop = 1;
+               
+            }
+            if(fire_yes == 10){
+                 printf("seeing fire\n");
+                fire = fire + 1;
+                count_loop = 1;
+                
+            }
+        }
+       camera_close();
+    }
+int back_black()
+{
+    while(analog(g_sens2) < target_g){
+        backward();
     }
 }
-
-// servo function to close the claw
-int close_claw_s(){
-    enable_servos();
-    set_servo_position(claw, close_c);
-    msleep(1000);
-    disable_servos();
+int back_white()
+{
+    while(analog(g_sens2) > target_g){
+        backward();
+    }
 }
-
-// a turning function that pivots left slowly
-int pivot_left_s (){
-  motor(l_motor, -l_speed);
-  motor(r_motor, l_speed);
+int find_pillar()
+{
+    while(analog(g_sens2) < target_g){
+        drift_l2();
+    }
+    while(analog(eyes) < 2300){
+        if(analog(g_sens2) < target_g){
+            drift_l();
+        }
+        if(analog(g_sens2) > target_g){
+            drift_r();
+        }
+    }
 }
-
-// turning function that pivots right slowly
-int pivot_right_s (){
-  motor(l_motor, 10);
-  motor(r_motor, -10);
+int pivot_l2()
+{
+   motor (RM,speed2);
+   msleep(500);
 }
-
-// drift motor function
-int drift_right (){
-    motor(r_motor, l_speed);
-    motor(l_motor, f_speed);
+int pivot_r2()
+{
+   motor (LM,speed1);
+   msleep(2000);
+}
+int find_white2()
+{
+  	while(analog(g_sens)<target_g)
+    {
+        printf("gsens2=%d\n",analog(g_sens2));
+      forward();
+    }
+}    
+int find_black2()  
+{
+  	while(analog(g_sens)>target_g)
+    {
+        printf("gsens2=%d\n",analog(g_sens2));
+      forward();
+    }
+}    
+int drift_black()  
+{
+    while(analog(g_sens2)<target_g)
+    {
+        printf("gsens2=%d\n",analog(g_sens2));
+      drift_l2();
+    }
+}    
+int drift_white()  
+{
+    while(analog(g_sens2)>target_g)
+    {
+        printf("gsens2=%d\n",analog(g_sens2));
+      drift_l2();
+    }
+}        
+int drift_l2()
+{
+	motor (LM,10);
+	motor (RM,40);
+    printf("drifting");
+}
+drift_r2()
+{
+    motor(LM,40);
+    motor(RM,10);
+}
+int line_follow_3()   
+{
+    while(analog(g_sens) < fire_target)
+		{           				  //while the bot is not sensing the line//
+        if(analog(g_sens2)>target_g)
+		{                                      //the bot will drift off the line when it senses it//
+        	drift_r();
+        }
+        if(analog(g_sens2)<target_g)
+		{                                  //the bot will drift onto the line when it doesn't sense it//
+            drift_l();
+        }
+    }
+}
+int shimmy()
+{
+    back_left();
+    msleep(150);
+    back_right();
+    msleep(150);
+    back_left();
+    msleep(300);
+    back_right();
+    msleep(300);
+    back_left();
+    msleep(200);
+    back_right();
+    msleep(200);
+}
+int back_left()
+{
+    motor(LM,-speed3);
+    motor(RM,-30);
+}
+int back_right()
+{
+    motor(LM,-30);
+    motor(RM,-speed3);
+}
+void turn_check()
+{
+    turn_count = 0;
+    while (turn_count ==0){
+        if(analog(g_sens2) > target_g){
+        find_white();
+            turn_count=1;
+    }
+    if(analog(g_sens2) < target_g){
+        find_black();
+        find_white();
+        turn_count = 1;
+    }
+    }
+    ao();
+}
+int firetruck()
+{
+    while(analog(g_sens2) < target_g){
+        drift_l2();
+    }
+}
     
-}
-
-// drift motor function
-int drift_left(){
-    motor(r_motor, f_speed);
-    motor(l_motor, l_speed);
     
-}
-
-// forward motor function
-int forward_med(){
-
-motor(r_motor,f_speed);
-motor(l_motor,f_speed);
-}
-
-// timed motor forward function
-int forward(int timer){
-
-motor(r_motor,f_speed);
-motor(l_motor,f_speed);
-msleep(timer);
-}
-
-// reverse motor function timed
-int reverse(int timer){
-printf("Moving Backwards \n");
-motor(r_motor,-f_speed);
-motor(l_motor,-f_speed);
-msleep(timer);    
-}
-
-// timed motor right turn
-int turnRight(int timer){
-printf("Turning right \n"); 
-motor(l_motor,f_speed);
-motor(r_motor,-f_speed);
-msleep(timer);
-}
-
-// timed motor left turn
-int turnLeft(int timer){
-printf("Turning left \n"); 
-motor(r_motor,f_speed);
-motor(l_motor,-f_speed);
-msleep(timer);
-}
